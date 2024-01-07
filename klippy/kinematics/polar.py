@@ -43,7 +43,6 @@ class PolarKinematics:
         max_velocity, max_accel = toolhead.get_max_velocity()
         self.max_rotational_velocity = config.getfloat('max_rotational_velocity', max_velocity, above=0., maxval=max_velocity)
         self.max_rotational_accel = config.getfloat('max_rotational_accel', max_accel, above=0., maxval=max_accel)
-        self.max_z_velocity = config.getfloat('max_z_velocity', max_velocity,
         self.max_z_velocity = config.getfloat(
             "max_z_velocity", max_velocity, above=0.0, maxval=max_velocity
         )
