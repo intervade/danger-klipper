@@ -3,9 +3,20 @@
 # Copyright (C) 2018-2021  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import math
+import logging, math
 import stepper
 
+# including definitions from prexz kinematic code
+def distance(p1, p2):
+    return math.sqrt(((p2[0] - p1[0]) ** 2) + ((p2[1] - p1[1]) ** 2))
+def distance_point_to_line(p0, p1, p2):
+    return (
+        abs(
+           ((p2[0] - p1[0]) * (p1[1] - p0[1]))
+           - ((p1[0] - p0[0]) * (p2[1] - p1[1]))
+        )
+        / distance(p1, p2)
+    )
 
 class PolarKinematics:
     def __init__(self, toolhead, config):
@@ -30,6 +41,9 @@ class PolarKinematics:
         )
         # Setup boundary checks
         max_velocity, max_accel = toolhead.get_max_velocity()
+        self.max_rotational_velocity = config.getfloat('max_rotational_velocity', max_velocity, above=0., maxval=max_velocity)
+        self.max_rotational_accel = config.getfloat('max_rotational_accel', max_accel, above=0., maxval=max_accel)
+        self.max_z_velocity = config.getfloat('max_z_velocity', max_velocity,
         self.max_z_velocity = config.getfloat(
             "max_z_velocity", max_velocity, above=0.0, maxval=max_velocity
         )
@@ -112,6 +126,20 @@ class PolarKinematics:
             if self.limit_xy2 < 0.0:
                 raise move.move_error("Must home axis first")
             raise move.move_error()
+
+        # more code from prexz
+        if move.axes_d[0] or move.axes_d[1]:
+            pi = 3.1415
+            bed_center = (0, 0) # TODO: Cartesian X,Y of bed center
+            bed_radius = distance(bed_center, (bed_center[0], self.axes_min[0]))
+	    start_xy = move.start_pos
+	    end_xy = move.end_pos
+            start_radius = distance(bed_center, start_xy)
+            # move_radius = distance_point_to_line(bed_center, start_xy, end_xy)
+            end_radius = distance(bed_center, end_xy)
+            scale = 2 * math.pi * ( min(start_radius, end_radius) / bed_radius )
+            move.limit_speed(self.max_rotational_accel, self.max_rotational_velocity * scale)
+            
         if move.axes_d[2]:
             if end_pos[2] < self.limit_z[0] or end_pos[2] > self.limit_z[1]:
                 if self.limit_z[0] > self.limit_z[1]:
